@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阿公的字鐘</title>
+    <meta name="description" content="A traditional Chinese character word clock — 九十大壽">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { color-scheme: dark; }
+
+        :root {
+            --gold: #ffd700;
+            --red: #e83030;
+            --orange: #ff9500;
+            --bg: #080404;
+            --frame: #120808;
+            --dim: 0.06;
+        }
+
+        body {
+            background: var(--bg);
+            font-family: 'Noto Serif TC', 'Songti TC', 'PMingLiU', serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 24px 16px;
+            color: var(--gold);
+        }
+
+        /* ── Title ── */
+        .title {
+            font-size: 13px;
+            font-weight: 400;
+            letter-spacing: 8px;
+            color: rgba(255,215,0,0.2);
+            margin-bottom: 16px;
+            text-indent: 8px;
+        }
+
+        /* ── Clock frame ── */
+        #frame {
+            background: linear-gradient(155deg, #1a0a08, var(--frame), #1a0a08);
+            border: 2px solid rgba(255,215,0,0.08);
+            border-radius: 8px;
+            padding: clamp(14px, 3.5vw, 36px);
+            box-shadow:
+                0 0 80px rgba(139,0,0,0.08),
+                0 0 160px rgba(0,0,0,0.9),
+                inset 0 1px 0 rgba(255,215,0,0.04);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        /* ── Grid ── */
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            grid-template-rows: repeat(9, 1fr);
+            gap: clamp(2px, 0.6vw, 5px);
+            aspect-ratio: 1;
+        }
+
+        .c {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(13px, 4vw, 36px);
+            font-weight: 700;
+            color: rgba(255,215,0, var(--dim));
+            transition: color 0.7s ease, text-shadow 0.7s ease;
+            aspect-ratio: 1;
+            user-select: none;
+            line-height: 1;
+            cursor: default;
+        }
+
+        /* Active states */
+        .c.t {
+            color: var(--gold);
+            text-shadow:
+                0 0 6px rgba(255,215,0,0.9),
+                0 0 18px rgba(255,215,0,0.5),
+                0 0 36px rgba(255,215,0,0.2);
+        }
+
+        .c.m {
+            color: var(--red);
+            text-shadow:
+                0 0 6px rgba(232,48,48,0.9),
+                0 0 18px rgba(232,48,48,0.5),
+                0 0 36px rgba(232,48,48,0.2);
+        }
+
+        .c.g {
+            color: var(--orange);
+            text-shadow:
+                0 0 6px rgba(255,149,0,0.9),
+                0 0 18px rgba(255,149,0,0.5),
+                0 0 36px rgba(255,149,0,0.2);
+        }
+
+        /* 2×2 spanning characters */
+        .big {
+            grid-column: span 2;
+            grid-row: span 2;
+            font-size: clamp(26px, 8vw, 72px);
+            font-weight: 900;
+        }
+
+        /* Hover: group highlight */
+        .c.hl {
+            background: rgba(255,215,0,0.07);
+            border-radius: 3px;
+        }
+
+        /* Tooltip */
+        #tip {
+            position: fixed;
+            background: rgba(12,6,4,0.96);
+            border: 1px solid rgba(255,215,0,0.3);
+            padding: 6px 11px;
+            border-radius: 5px;
+            font-size: 13px;
+            line-height: 1.6;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.15s;
+            max-width: 240px;
+            white-space: nowrap;
+        }
+        #tip.show { opacity: 1; }
+        #tip .zh { color: var(--gold); font-weight: 700; }
+        #tip .en { color: rgba(255,215,0,0.55); font-style: italic; margin-left: 4px; }
+
+        /* ── Reading display ── */
+        #reading {
+            text-align: center;
+            margin-top: 16px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        #zh-reading {
+            font-size: clamp(13px, 3vw, 18px);
+            color: rgba(255,215,0,0.3);
+            letter-spacing: 2px;
+            min-height: 1.5em;
+        }
+
+        #en-time {
+            font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: 11px;
+            color: rgba(255,215,0,0.15);
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        /* ── Controls ── */
+        #controls {
+            margin-top: 20px;
+            max-width: 500px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .cl {
+            font-size: 10px;
+            color: rgba(255,215,0,0.25);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .btn {
+            background: rgba(255,215,0,0.03);
+            border: 1px solid rgba(255,215,0,0.12);
+            color: rgba(255,215,0,0.35);
+            padding: 7px 13px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: rgba(255,215,0,0.06);
+            border-color: rgba(255,215,0,0.25);
+            color: rgba(255,215,0,0.6);
+        }
+
+        .btn.on {
+            background: rgba(255,215,0,0.08);
+            border-color: rgba(255,215,0,0.4);
+            color: var(--gold);
+        }
+
+        input[type="time"] {
+            background: rgba(255,215,0,0.03);
+            border: 1px solid rgba(255,215,0,0.12);
+            color: var(--gold);
+            padding: 7px 10px;
+            border-radius: 5px;
+            font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: 14px;
+            width: 110px;
+            transition: all 0.25s ease;
+        }
+
+        input[type="time"]:focus {
+            outline: none;
+            border-color: rgba(255,215,0,0.4);
+        }
+
+        input[type="time"]:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 380px) {
+            body { padding: 12px 8px; }
+            #frame { padding: 10px; }
+            .btn { padding: 6px 10px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="title">阿公的字鐘</div>
+
+<div id="frame">
+    <div id="grid"></div>
+</div>
+
+<div id="tip"></div>
+
+<div id="reading">
+    <div id="zh-reading"></div>
+    <div id="en-time"></div>
+</div>
+
+<div id="controls">
+    <div>
+        <div class="cl">時間 Time</div>
+        <div class="row">
+            <button class="btn on" id="btn-auto">自動</button>
+            <input type="time" id="inp-time" disabled>
+        </div>
+    </div>
+    <div>
+        <div class="cl">祝福 Messages</div>
+        <div class="row" id="msg-row"></div>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  GRID LAYOUT  (9 × 9)
+//  null = cell occupied by a 2×2 spanning character
+// ═══════════════════════════════════════════════════════════
+//        0     1     2     3     4     5     6     7     8
+const G=[
+  /*0*/ ['阿', null, '公', null, '生', '日', '快', '樂', '壽'],
+  /*1*/ [null,  null, null, null, '身', '體', '健', '康', '福'],
+  /*2*/ ['天', '天', '開', '心', '九', '十', '大', '壽', '好'],
+  /*3*/ ['早', '安', '午', '安', '晚', '安', '賀', '壽', '喜'],
+  /*4*/ ['現', '在', '早', '上', '午', '下', '午', '晚', '上'],
+  /*5*/ ['一', '二', '三', '四', '五', '六', '七', '八', '九'],
+  /*6*/ ['十', '十', '一', '十', '二', '兩', '點', '整', '半'],
+  /*7*/ ['一', '刻', '三', '刻', '十', '分', '五', '分', '鐘'],
+  /*8*/ ['二', '十', '三', '十', '四', '十', '五', '十', '號'],
+];
+
+// 2×2 characters (top-left origin)
+const BIG = [
+    { ch: '阿', r: 0, c: 0 },
+    { ch: '公', r: 0, c: 2 },
+];
+
+// Pre-compute occupied cells
+const occ = new Set();
+BIG.forEach(b => {
+    for (let dr = 0; dr < 2; dr++)
+        for (let dc = 0; dc < 2; dc++)
+            occ.add(`${b.r + dr}-${b.c + dc}`);
+});
+
+// ═══════════════════════════════════════════════════════════
+//  CELL COORDINATE MAPS
+//  Each phrase maps to the [row, col] positions it lights up
+// ═══════════════════════════════════════════════════════════
+
+// Time-of-day period
+const PERIOD = {
+    '早上': [[4,2],[4,3]],     // 06:00–08:59
+    '上午': [[4,3],[4,4]],     // 09:00–11:59
+    '下午': [[4,5],[4,6]],     // 12:00–17:59
+    '晚上': [[4,7],[4,8]],     // 18:00–05:59
+};
+
+// Hour (12-hour). Note: hour 2 uses 兩 (colloquial Taiwanese)
+const HOUR = {
+    1:  [[5,0]],
+    2:  [[6,5]],                // 兩
+    3:  [[5,2]],
+    4:  [[5,3]],
+    5:  [[5,4]],
+    6:  [[5,5]],
+    7:  [[5,6]],
+    8:  [[5,7]],
+    9:  [[5,8]],
+    10: [[6,0]],
+    11: [[6,1],[6,2]],          // 十一
+    12: [[6,3],[6,4]],          // 十二
+};
+
+// Minutes (rounded to nearest 5)
+const MINS = {
+    0:  [[6,7]],                            // 整
+    5:  [[7,6],[7,7]],                      // 五分
+    10: [[7,4],[7,5]],                      // 十分
+    15: [[7,0],[7,1]],                      // 一刻
+    20: [[8,0],[8,1],[7,5]],                // 二十 + 分
+    25: [[8,0],[8,1],[7,6],[7,7]],          // 二十 + 五分
+    30: [[6,8]],                            // 半
+    35: [[8,2],[8,3],[7,6],[7,7]],          // 三十 + 五分
+    40: [[8,4],[8,5],[7,5]],                // 四十 + 分
+    45: [[7,2],[7,3]],                      // 三刻
+    50: [[8,6],[8,7],[7,5]],                // 五十 + 分
+    55: [[8,6],[8,7],[7,6],[7,7]],          // 五十 + 五分
+};
+
+// Time-appropriate greeting
+const GREET = {
+    '早安': [[3,0],[3,1]],
+    '午安': [[3,2],[3,3]],
+    '晚安': [[3,4],[3,5]],
+};
+
+// Togglable messages
+const MSG = {
+    '阿公':     [[0,0],[0,2]],                     // 2×2 characters
+    '生日快樂': [[0,4],[0,5],[0,6],[0,7]],
+    '身體健康': [[1,4],[1,5],[1,6],[1,7]],
+    '天天開心': [[2,0],[2,1],[2,2],[2,3]],
+    '九十大壽': [[2,4],[2,5],[2,6],[2,7]],
+};
+
+// ═══════════════════════════════════════════════════════════
+//  SEMANTIC GROUPS  (for hover tooltips)
+//  A cell can belong to multiple groups — tooltip shows all
+// ═══════════════════════════════════════════════════════════
+const GROUPS = [
+    // ── Messages (rows 0–3) ──
+    { cells:[[0,0],[0,2]],             zh:'阿公',     en:'Grandpa' },
+    { cells:[[0,4],[0,5],[0,6],[0,7]], zh:'生日快樂', en:'Happy Birthday' },
+    { cells:[[0,8]],                   zh:'壽',       en:'Longevity' },
+    { cells:[[1,4],[1,5],[1,6],[1,7]], zh:'身體健康', en:'Good Health' },
+    { cells:[[1,8]],                   zh:'福',       en:'Fortune / Blessing' },
+    { cells:[[2,0],[2,1],[2,2],[2,3]], zh:'天天開心', en:'Happy Every Day' },
+    { cells:[[2,4],[2,5],[2,6],[2,7]], zh:'九十大壽', en:'90th Birthday Celebration' },
+    { cells:[[2,8]],                   zh:'好',       en:'Good / Well' },
+    { cells:[[3,0],[3,1]],             zh:'早安',     en:'Good Morning' },
+    { cells:[[3,2],[3,3]],             zh:'午安',     en:'Good Afternoon' },
+    { cells:[[3,4],[3,5]],             zh:'晚安',     en:'Good Night' },
+    { cells:[[3,6],[3,7]],             zh:'賀壽',     en:'Birthday Blessings' },
+    { cells:[[3,8]],                   zh:'喜',       en:'Joy / Happiness' },
+
+    // ── Time structure (row 4) ──
+    { cells:[[4,0],[4,1]],  zh:'現在', en:'Right now / It is' },
+    { cells:[[4,2],[4,3]],  zh:'早上', en:'Early morning (6–9am)' },
+    { cells:[[4,3],[4,4]],  zh:'上午', en:'Morning (9am–noon)' },
+    { cells:[[4,5],[4,6]],  zh:'下午', en:'Afternoon (noon–6pm)' },
+    { cells:[[4,7],[4,8]],  zh:'晚上', en:'Evening / Night (6pm–6am)' },
+
+    // ── Hours (rows 5–6) ──
+    { cells:[[5,0]], zh:'一', en:'One / 1' },
+    { cells:[[5,1]], zh:'二', en:'Two / 2' },
+    { cells:[[5,2]], zh:'三', en:'Three / 3' },
+    { cells:[[5,3]], zh:'四', en:'Four / 4' },
+    { cells:[[5,4]], zh:'五', en:'Five / 5' },
+    { cells:[[5,5]], zh:'六', en:'Six / 6' },
+    { cells:[[5,6]], zh:'七', en:'Seven / 7' },
+    { cells:[[5,7]], zh:'八', en:'Eight / 8' },
+    { cells:[[5,8]], zh:'九', en:'Nine / 9' },
+    { cells:[[6,0]], zh:'十', en:'Ten / 10' },
+    { cells:[[6,1],[6,2]], zh:'十一', en:'Eleven / 11' },
+    { cells:[[6,3],[6,4]], zh:'十二', en:'Twelve / 12' },
+    { cells:[[6,5]], zh:'兩', en:'Two (spoken form)' },
+    { cells:[[6,6]], zh:'點', en:"O'clock" },
+    { cells:[[6,7]], zh:'整', en:'Exactly / On the hour' },
+    { cells:[[6,8]], zh:'半', en:'Half past' },
+
+    // ── Minutes (rows 7–8) ──
+    { cells:[[7,0],[7,1]], zh:'一刻', en:'Quarter (15 min)' },
+    { cells:[[7,2],[7,3]], zh:'三刻', en:'Three quarters (45 min)' },
+    { cells:[[7,4],[7,5]], zh:'十分', en:'10 minutes' },
+    { cells:[[7,6],[7,7]], zh:'五分', en:'5 minutes' },
+    { cells:[[7,8]],       zh:'鐘',   en:'Clock' },
+    { cells:[[8,0],[8,1]], zh:'二十', en:'Twenty / 20' },
+    { cells:[[8,2],[8,3]], zh:'三十', en:'Thirty / 30' },
+    { cells:[[8,4],[8,5]], zh:'四十', en:'Forty / 40' },
+    { cells:[[8,6],[8,7]], zh:'五十', en:'Fifty / 50' },
+    { cells:[[8,8]],       zh:'號',   en:'Date marker' },
+];
+
+// Build cell → groups lookup (a cell can appear in multiple groups)
+const cellGroups = new Map();
+GROUPS.forEach(g => {
+    g.cells.forEach(([r,c]) => {
+        const key = `${r}-${c}`;
+        if (!cellGroups.has(key)) cellGroups.set(key, []);
+        cellGroups.get(key).push(g);
+    });
+});
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let auto   = true;
+let manual = null;
+let msgs   = new Set(Object.keys(MSG));
+let greetOn = true;
+let lastKey = '';
+
+// ═══════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════
+const cid = (r, c) => `c${r}_${c}`;
+const $   = s => document.getElementById(s);
+
+function getPeriod(h) {
+    if (h >= 6  && h < 9)  return '早上';
+    if (h >= 9  && h < 12) return '上午';
+    if (h >= 12 && h < 18) return '下午';
+    return '晚上';
+}
+
+function getGreeting(h) {
+    if (h >= 6  && h < 12) return '早安';
+    if (h >= 12 && h < 18) return '午安';
+    return '晚安';
+}
+
+// Chinese hour names (兩 for 2 o'clock — natural in spoken Taiwanese Mandarin)
+const HNAME = ['','一','兩','三','四','五','六','七','八','九','十','十一','十二'];
+
+// Chinese minute names
+const MNAME = {
+    0:'整', 5:'五分', 10:'十分', 15:'一刻', 20:'二十分', 25:'二十五分',
+    30:'半', 35:'三十五分', 40:'四十分', 45:'三刻', 50:'五十分', 55:'五十五分'
+};
+
+function getReading(h24, h12, rm) {
+    return `現在${getPeriod(h24)}${HNAME[h12]}點${MNAME[rm]}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TOOLTIP HELPERS
+// ═══════════════════════════════════════════════════════════
+function moveTip(e) {
+    const tip = $('tip');
+    let x = e.clientX + 14;
+    let y = e.clientY + 14;
+    const w = tip.offsetWidth;
+    const h = tip.offsetHeight;
+    if (x + w > window.innerWidth - 8)  x = e.clientX - w - 10;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - 10;
+    tip.style.left = x + 'px';
+    tip.style.top  = y + 'px';
+}
+
+function addHover(el, r, c) {
+    el.addEventListener('mouseenter', (e) => {
+        const groups = cellGroups.get(`${r}-${c}`);
+        if (!groups || groups.length === 0) return;
+
+        // Highlight all cells in the primary (first) group
+        groups[0].cells.forEach(([gr,gc]) => {
+            $(cid(gr,gc))?.classList.add('hl');
+        });
+
+        // Build tooltip content — show all groups this cell belongs to
+        const tip = $('tip');
+        tip.innerHTML = groups.map(g =>
+            `<span class="zh">${g.zh}</span><span class="en">${g.en}</span>`
+        ).join('<br>');
+        tip.classList.add('show');
+        moveTip(e);
+    });
+
+    el.addEventListener('mouseleave', () => {
+        document.querySelectorAll('.hl').forEach(e => e.classList.remove('hl'));
+        $('tip').classList.remove('show');
+    });
+
+    el.addEventListener('mousemove', moveTip);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BUILD GRID DOM
+// ═══════════════════════════════════════════════════════════
+function buildGrid() {
+    const grid = $('grid');
+
+    // Place 2×2 characters with explicit grid positioning
+    BIG.forEach(b => {
+        const el = document.createElement('div');
+        el.className = 'c big';
+        el.id = cid(b.r, b.c);
+        el.textContent = b.ch;
+        el.style.gridRow    = `${b.r + 1} / ${b.r + 3}`;
+        el.style.gridColumn = `${b.c + 1} / ${b.c + 3}`;
+        addHover(el, b.r, b.c);
+        grid.appendChild(el);
+    });
+
+    // Place remaining regular-sized characters
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (occ.has(`${r}-${c}`)) continue;
+            const el = document.createElement('div');
+            el.className = 'c';
+            el.id = cid(r, c);
+            el.textContent = G[r][c];
+            el.style.gridRow    = String(r + 1);
+            el.style.gridColumn = String(c + 1);
+            addHover(el, r, c);
+            grid.appendChild(el);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CLOCK TICK
+// ═══════════════════════════════════════════════════════════
+function tick() {
+    const now = new Date();
+    let h, m;
+
+    if (auto) {
+        h = now.getHours();
+        m = now.getMinutes();
+    } else if (manual) {
+        [h, m] = manual.split(':').map(Number);
+    } else {
+        h = now.getHours();
+        m = now.getMinutes();
+    }
+
+    // Round minutes to nearest 5; handle overflow into next hour
+    let rm = Math.round(m / 5) * 5;
+    let rh = h;
+    if (rm >= 60) { rm = 0; rh = (h + 1) % 24; }
+    const h12 = rh % 12 || 12;
+
+    // Only re-render grid when the displayed state actually changes
+    const key = `${rh}:${rm}:${greetOn}:${[...msgs]}`;
+    if (key !== lastKey) {
+        lastKey = key;
+
+        // Clear all active classes
+        document.querySelectorAll('.c').forEach(el => {
+            el.classList.remove('t', 'm', 'g');
+        });
+
+        // ── Time ──
+
+        // 現在 (always shown)
+        [[4,0],[4,1]].forEach(([r,c]) => $(cid(r,c))?.classList.add('t'));
+
+        // Period (早上 / 上午 / 下午 / 晚上)
+        PERIOD[getPeriod(rh)].forEach(([r,c]) => $(cid(r,c))?.classList.add('t'));
+
+        // Hour
+        HOUR[h12].forEach(([r,c]) => $(cid(r,c))?.classList.add('t'));
+
+        // 點
+        $(cid(6,6))?.classList.add('t');
+
+        // Minutes
+        MINS[rm].forEach(([r,c]) => $(cid(r,c))?.classList.add('t'));
+
+        // ── Greeting ──
+        if (greetOn) {
+            GREET[getGreeting(rh)].forEach(([r,c]) => $(cid(r,c))?.classList.add('g'));
+        }
+
+        // ── Messages ──
+        msgs.forEach(k => {
+            MSG[k]?.forEach(([r,c]) => $(cid(r,c))?.classList.add('m'));
+        });
+    }
+
+    // Always update text displays (seconds tick even when grid doesn't change)
+    $('zh-reading').textContent = getReading(rh, h12, rm);
+    const display_h = auto ? now.getHours() : h;
+    const display_m = auto ? now.getMinutes() : m;
+    const sec = auto ? ':' + String(now.getSeconds()).padStart(2, '0') : '';
+    $('en-time').textContent =
+        `${String(display_h).padStart(2,'0')}:${String(display_m).padStart(2,'0')}${sec}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════════════
+function setupControls() {
+    const autoBtn  = $('btn-auto');
+    const timeInp  = $('inp-time');
+
+    // Auto / Manual toggle
+    autoBtn.addEventListener('click', () => {
+        auto = !auto;
+        autoBtn.classList.toggle('on', auto);
+        autoBtn.textContent = auto ? '自動' : '手動';
+        timeInp.disabled = auto;
+        if (!auto) {
+            const n = new Date();
+            timeInp.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+            manual = timeInp.value;
+        }
+        lastKey = '';
+        tick();
+    });
+
+    timeInp.addEventListener('input', () => {
+        manual = timeInp.value;
+        lastKey = '';
+        tick();
+    });
+
+    // Message toggle buttons
+    const msgRow = $('msg-row');
+
+    // Greeting toggle
+    const gBtn = document.createElement('button');
+    gBtn.className = 'btn on';
+    gBtn.textContent = '問候';
+    gBtn.title = 'Time-of-day greeting (早安 / 午安 / 晚安)';
+    gBtn.addEventListener('click', () => {
+        greetOn = !greetOn;
+        gBtn.classList.toggle('on', greetOn);
+        lastKey = '';
+        tick();
+    });
+    msgRow.appendChild(gBtn);
+
+    // Individual message toggles
+    Object.keys(MSG).forEach(k => {
+        const btn = document.createElement('button');
+        btn.className = 'btn on';
+        btn.textContent = k;
+        btn.addEventListener('click', () => {
+            if (msgs.has(k)) msgs.delete(k); else msgs.add(k);
+            btn.classList.toggle('on', msgs.has(k));
+            lastKey = '';
+            tick();
+        });
+        msgRow.appendChild(btn);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+buildGrid();
+setupControls();
+tick();
+setInterval(tick, 1000);
+</script>
+
+</body>
+</html>
