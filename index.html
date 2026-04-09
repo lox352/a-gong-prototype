@@ -15,8 +15,8 @@
 
         :root {
             --gold: #ffd700;
-            --red: #e83030;
-            --orange: #ff9500;
+            --red: #d44525;
+            --orange: #e06030;
             --cream: #fff2d6;
             --bg: #080404;
             --frame: #120808;
@@ -93,26 +93,29 @@
 
         .c.m {
             color: var(--red);
+            font-weight: 400;
             text-shadow:
-                0 0 6px rgba(232,48,48,0.9),
-                0 0 18px rgba(232,48,48,0.5),
-                0 0 36px rgba(232,48,48,0.2);
+                0 0 6px rgba(212,69,37,0.9),
+                0 0 18px rgba(212,69,37,0.5),
+                0 0 36px rgba(212,69,37,0.2);
         }
 
         .c.g {
             color: var(--orange);
+            font-weight: 400;
             text-shadow:
-                0 0 6px rgba(255,149,0,0.9),
-                0 0 18px rgba(255,149,0,0.5),
-                0 0 36px rgba(255,149,0,0.2);
+                0 0 6px rgba(224,96,48,0.9),
+                0 0 18px rgba(224,96,48,0.5),
+                0 0 36px rgba(224,96,48,0.2);
         }
 
         .c.b {
-            color: var(--cream);
+            color: var(--orange);
+            font-weight: 400;
             text-shadow:
-                0 0 6px rgba(255,242,214,0.8),
-                0 0 18px rgba(255,242,214,0.4),
-                0 0 36px rgba(255,242,214,0.15);
+                0 0 6px rgba(224,96,48,0.9),
+                0 0 18px rgba(224,96,48,0.5),
+                0 0 36px rgba(224,96,48,0.2);
         }
 
         /* 2×2 spanning characters */
@@ -288,14 +291,14 @@
 // ═══════════════════════════════════════════════════════════
 //        0     1     2     3     4     5     6     7
 const G=[
-  /*0*/ ['生', '福', '整', '二', '七', '現', null, null],
-  /*1*/ ['日', '如', '半', '十', '八', '在', null, null],
+  /*0*/ ['生', '福', '整', '二', '七', '凌', null, null],
+  /*1*/ ['日', '如', '半', '十', '八', '晨', null, null],
   /*2*/ ['快', '東', '一', '三', '九', '一', null, null],
   /*3*/ ['樂', '海', '刻', '十', '十', '兩', null, null],
   /*4*/ ['身', '壽', '三', '四', '一', '三', '晚', '早'],
   /*5*/ ['體', '比', '刻', '十', '十', '四', '安', '安'],
-  /*6*/ ['健', '南', '五', '五', '二', '五', '請', '午'],
-  /*7*/ ['康', '山', '分', '十', '點', '六', '安', '安'],
+  /*6*/ ['健', '南', '五', '五', '二', '五', '現', '午'],
+  /*7*/ ['康', '山', '分', '十', '點', '六', '在', '安'],
 ];
 
 // 2×2 characters (top-left origin) — 阿 and 公 stacked in the top-right
@@ -358,23 +361,24 @@ const GREET = {
 
 // Always-lit cells, grouped by semantic class.
 // .t = gold (time), .m = red (阿公 focal point),
-// .g = orange (greetings + honorific), .b = cream (blessings)
+// .g = orange (time-of-day greetings), .b = cream (blessings)
 // These are marked with '.a' in buildGrid so tick()'s clear loop never wipes them.
 const ALWAYS_LIT = {
     t: [
-        [0,5], [1,5],                          // 現在
+        [6,6], [7,6],                          // 現在 (moved from col 5 to free space for 凌晨)
         [7,4],                                 // 點
     ],
     m: [
         [0,6], [2,6],                          // 阿 公 (2×2 big char origins)
     ],
-    g: [
-        [6,6], [7,6],                          // 請安 (always-lit honorific)
-    ],
     b: [
         [4,0], [5,0], [6,0], [7,0],            // 身體健康 (general well-wish, always lit)
     ],
 };
+
+// 凌晨 (pre-dawn period qualifier) — lit with .t when rh < 6.
+// Semantically a time structure word, not a greeting, so gold not orange.
+const PREDAWN = [[0,5],[1,5]];
 
 // Birthday blessings — toggleable; default on only on May 11.
 // 生日快樂 + the canonical elder-birthday couplet 福如東海 / 壽比南山
@@ -399,10 +403,10 @@ const GROUPS = [
     { cells:[[4,7],[5,7]], zh:'早安', en:'Good Morning (6am–noon)' },
     { cells:[[6,7],[7,7]], zh:'午安', en:'Good Afternoon (noon–6pm)' },
     { cells:[[4,6],[5,6]], zh:'晚安', en:'Good Evening (6pm–6am)' },
-    { cells:[[6,6],[7,6]], zh:'請安', en:'Pay respects to an elder (honorific)' },
 
-    // ── Time structure (always lit) ──
-    { cells:[[0,5],[1,5]], zh:'現在', en:'Right now / It is' },
+    // ── Time structure ──
+    { cells:[[6,6],[7,6]], zh:'現在', en:'Right now / It is' },
+    { cells:[[0,5],[1,5]], zh:'凌晨', en:'Pre-dawn hours (midnight–6am)' },
     { cells:[[7,4]],       zh:'點',   en:"O'clock" },
 
     // ── Hours (cols 4–5) ──
@@ -471,10 +475,12 @@ const cid = (r, c) => `c${r}_${c}`;
 const $   = s => document.getElementById(s);
 
 function getPeriod(h) {
-    if (h >= 6  && h < 9)  return '早上';
-    if (h >= 9  && h < 12) return '上午';
-    if (h >= 12 && h < 18) return '下午';
-    return '晚上';
+    if (h < 6)             return '凌晨';   // pre-dawn
+    if (h < 9)             return '早上';   // early morning
+    if (h < 12)            return '上午';   // late morning
+    if (h === 12)          return '中午';   // noon
+    if (h < 18)            return '下午';   // afternoon
+    return '晚上';                          // evening / night
 }
 
 function getGreeting(h) {
@@ -493,7 +499,7 @@ const MNAME = {
 };
 
 function getReading(h24, h12, rm) {
-    return `現在${getPeriod(h24)}${HNAME[h12]}點${MNAME[rm]}`;
+    return `現在是${getPeriod(h24)}${HNAME[h12]}點${MNAME[rm]}`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -608,7 +614,7 @@ function tick() {
     if (key !== lastKey) {
         lastKey = key;
 
-        // Clear dynamic classes only — .a cells (現在, 點, 阿公, 請安,
+        // Clear dynamic classes only — .a cells (現在, 點, 阿公,
         // 身體健康) are always-lit and must be preserved.
         document.querySelectorAll('.c:not(.a)').forEach(el => {
             el.classList.remove('t', 'm', 'g', 'b');
@@ -622,7 +628,13 @@ function tick() {
         // Minutes
         MINS[rm].forEach(([r,c]) => $(cid(r,c))?.classList.add('t'));
 
-        // ── Greeting ── (請安 is always-lit via ALWAYS_LIT)
+        // 凌晨 pre-dawn qualifier — time structure, not a greeting,
+        // so gold (.t) and not gated by greetOn.
+        if (rh < 6) {
+            PREDAWN.forEach(([r,c]) => $(cid(r,c))?.classList.add('t'));
+        }
+
+        // ── Greeting ── (one of 早安 / 午安 / 晚安)
         if (greetOn) {
             GREET[getGreeting(rh)].forEach(([r,c]) => $(cid(r,c))?.classList.add('g'));
         }
@@ -670,7 +682,7 @@ function setupControls() {
         tick();
     });
 
-    // Greeting toggle (早安 / 午安 / 晚安 — 請安 is always-lit)
+    // Greeting toggle (早安 / 午安 / 晚安)
     const gBtn = document.createElement('button');
     gBtn.className = 'btn on';
     gBtn.textContent = '問候';
