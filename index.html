@@ -291,14 +291,14 @@
 // ═══════════════════════════════════════════════════════════
 //        0     1     2     3     4     5     6     7
 const G=[
-  /*0*/ ['生', '福', '整', '二', '七', '凌', null, null],
-  /*1*/ ['日', '如', '半', '十', '八', '晨', null, null],
+  /*0*/ ['生', '福', '整', '二', '七', '現', null, null],
+  /*1*/ ['日', '如', '半', '十', '八', '在', null, null],
   /*2*/ ['快', '東', '一', '三', '九', '一', null, null],
   /*3*/ ['樂', '海', '刻', '十', '十', '兩', null, null],
   /*4*/ ['身', '壽', '三', '四', '一', '三', '晚', '早'],
   /*5*/ ['體', '比', '刻', '十', '十', '四', '安', '安'],
-  /*6*/ ['健', '南', '五', '五', '二', '五', '現', '午'],
-  /*7*/ ['康', '山', '分', '十', '點', '六', '在', '安'],
+  /*6*/ ['健', '南', '五', '五', '二', '五', '好', '午'],
+  /*7*/ ['康', '山', '分', '十', '點', '六', '眠', '安'],
 ];
 
 // 2×2 characters (top-left origin) — 阿 and 公 stacked in the top-right
@@ -365,7 +365,7 @@ const GREET = {
 // These are marked with '.a' in buildGrid so tick()'s clear loop never wipes them.
 const ALWAYS_LIT = {
     t: [
-        [6,6], [7,6],                          // 現在 (moved from col 5 to free space for 凌晨)
+        [0,5], [1,5],                          // 現在
         [7,4],                                 // 點
     ],
     m: [
@@ -376,9 +376,8 @@ const ALWAYS_LIT = {
     ],
 };
 
-// 凌晨 (pre-dawn period qualifier) — lit with .t when rh < 6.
-// Semantically a time structure word, not a greeting, so gold not orange.
-const PREDAWN = [[0,5],[1,5]];
+// 好眠 (sleep well) — lit from 10:45pm to midnight, gated by greetOn.
+const GOOD_SLEEP = [[6,6],[7,6]];
 
 // Birthday blessings — toggleable; default on only on May 11.
 // 生日快樂 + the canonical elder-birthday couplet 福如東海 / 壽比南山
@@ -403,10 +402,10 @@ const GROUPS = [
     { cells:[[4,7],[5,7]], zh:'早安', en:'Good Morning (6am–noon)' },
     { cells:[[6,7],[7,7]], zh:'午安', en:'Good Afternoon (noon–6pm)' },
     { cells:[[4,6],[5,6]], zh:'晚安', en:'Good Evening (6pm–6am)' },
+    { cells:[[6,6],[7,6]], zh:'好眠', en:'Sleep well (10:45pm–midnight)' },
 
     // ── Time structure ──
-    { cells:[[6,6],[7,6]], zh:'現在', en:'Right now / It is' },
-    { cells:[[0,5],[1,5]], zh:'凌晨', en:'Pre-dawn hours (midnight–6am)' },
+    { cells:[[0,5],[1,5]], zh:'現在', en:'Right now / It is' },
     { cells:[[7,4]],       zh:'點',   en:"O'clock" },
 
     // ── Hours (cols 4–5) ──
@@ -628,15 +627,14 @@ function tick() {
         // Minutes
         MINS[rm].forEach(([r,c]) => $(cid(r,c))?.classList.add('t'));
 
-        // 凌晨 pre-dawn qualifier — time structure, not a greeting,
-        // so gold (.t) and not gated by greetOn.
-        if (rh < 6) {
-            PREDAWN.forEach(([r,c]) => $(cid(r,c))?.classList.add('t'));
-        }
-
-        // ── Greeting ── (one of 早安 / 午安 / 晚安)
+        // ── Greeting ── (one of 早安 / 午安 / 晚安, plus 好眠 late at night)
         if (greetOn) {
             GREET[getGreeting(rh)].forEach(([r,c]) => $(cid(r,c))?.classList.add('g'));
+
+            // 好眠 — "sleep well", from 10:45pm until midnight
+            if ((rh === 22 && rm >= 45) || rh === 23) {
+                GOOD_SLEEP.forEach(([r,c]) => $(cid(r,c))?.classList.add('g'));
+            }
         }
 
         // ── Birthday blessings ── (toggleable; default on only on May 11)
